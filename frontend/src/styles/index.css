@@ -1,0 +1,22 @@
+/* Design Tokens & Base Reset */
+:root {
+  --bg-page: #F5F9FC;
+  --bg-card: #FFFFFF;
+  --primary: #5B8DB8;
+  --primary-hover: #4A7A9E;
+  --pastel-blue: #DCEAF3;
+  --pastel-lavender: #E8E1FA;
+  --pastel-mint: #DDF3E4;
+  --pastel-peach: #FFF0D9;
+  --text-main: #315F7B;
+  --text-muted: #64748B;
+  --border-color: #D9E5EC;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+}
