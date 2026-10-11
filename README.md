@@ -101,6 +101,41 @@ npm run dev
 ```
 *The frontend application will be running at: `http://localhost:5173`*
 
+## ⚙️ Environment Configuration
+
+### React / Vite frontend
+
+Copy `frontend/.env.example` to `frontend/.env` and set `VITE_API_BASE_URL` to the API URL:
+
+```text
+VITE_API_BASE_URL=http://localhost:8080/api
+```
+
+Vite reads this value when it starts or builds the frontend. For deployment, set
+`VITE_API_BASE_URL` in the frontend build environment to the deployed API URL, or
+`/api` when the frontend and backend share a domain and `/api` is routed to the backend.
+Values prefixed with `VITE_` are included in browser code, so never put passwords,
+database credentials, or JWT secrets in the frontend environment file.
+
+### Java / Spring Boot backend
+
+Spring Boot reads configuration from environment variables, not from a `.env` file.
+Set these variables in the backend deployment platform's environment/secrets settings:
+
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | Backend listening port (defaults to `8080`) |
+| `DB_URL` | MySQL JDBC connection URL |
+| `DB_USERNAME` | MySQL username |
+| `DB_PASSWORD` | MySQL password |
+| `JWT_SECRET` | Secret used to sign authentication tokens; required |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds (defaults to `86400000`) |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins |
+
+Node.js is used to install dependencies and build/run the Vite frontend; this project
+does not have a separate Node.js backend. Keep real `.env` files and credentials out
+of Git. The committed `frontend/.env.example` is a safe template, not a place for secrets.
+
 ---
 
 ## 🔐 Default Admin Account Creation

@@ -6,3 +6,4 @@ backend/target/
 *.backup
 .env
 .env.*
+!/.env.example
