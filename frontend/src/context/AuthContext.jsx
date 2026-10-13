@@ -22,9 +22,12 @@ export const AuthProvider = ({ children }) => {
       if (storedToken) {
         try {
           const res = await authService.getCurrentUser();
-          if (res && res.data) {
-            setUser(res.data);
-            localStorage.setItem('user', JSON.stringify(res.data));
+          const profileData = res?.data || res;
+          if (profileData && (profileData.email || profileData.id)) {
+            setUser(profileData);
+            localStorage.setItem('user', JSON.stringify(profileData));
+          } else {
+            logout();
           }
         } catch (err) {
           console.error('Session expired or invalid:', err);
@@ -38,9 +41,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
+    // Proactively clear any stale credentials before authenticating
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
     const res = await authService.login(email, password);
-    if (res && res.data) {
-      const { token: jwtToken, id, name, email: userEmail, role } = res.data;
+    const authData = res?.data || res;
+    if (authData && authData.token) {
+      const { token: jwtToken, id, name, email: userEmail, role } = authData;
       const userData = { id, name, email: userEmail, role };
 
       localStorage.setItem('token', jwtToken);

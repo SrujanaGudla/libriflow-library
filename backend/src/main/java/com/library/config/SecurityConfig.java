@@ -1,9 +1,8 @@
 package com.library.config;
 
-import com.library.security.JwtAccessDeniedHandler;
-import com.library.security.JwtAuthEntryPoint;
-import com.library.security.JwtAuthenticationFilter;
-import com.library.security.UserDetailsServiceImpl;
+import java.util.Arrays;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -25,8 +24,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
-import java.util.List;
+import com.library.security.JwtAccessDeniedHandler;
+import com.library.security.JwtAuthEntryPoint;
+import com.library.security.JwtAuthenticationFilter;
+import com.library.security.UserDetailsServiceImpl;
 
 @Configuration
 @EnableWebSecurity
@@ -45,7 +46,7 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    @Value("${app.cors.allowed-origins:https://libriflow-library.vercel.app,http://localhost:5173,http://localhost:3000}")
     private String allowedOrigins;
 
     @Bean
@@ -67,20 +68,24 @@ public class SecurityConfig {
     }
 
     /**
-     * Non-wildcard CORS configuration specifically allowing the React frontend (http://localhost:5173),
-     * required HTTP methods (GET, POST, PUT, DELETE, OPTIONS), and headers (Authorization, Content-Type).
+     * Non-wildcard CORS configuration specifically allowing the production frontend (https://libriflow-library.vercel.app)
+     * and local dev ports, required HTTP methods (GET, POST, PUT, DELETE, OPTIONS, PATCH),
+     * and headers (Authorization, Content-Type).
      * With allowCredentials(true), explicit origin matching is enforced.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Explicitly allowed origins (no wildcard with credentials)
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        // Explicitly allowed origins with whitespace trimming (no wildcard with credentials)
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
         configuration.setAllowedOrigins(origins);
         
         // Allowed HTTP methods
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         
         // Allowed Headers including Authorization and Content-Type
         configuration.setAllowedHeaders(Arrays.asList(
@@ -128,23 +133,23 @@ public class SecurityConfig {
                 // Allow all CORS preflight OPTIONS requests
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // Public endpoints
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/books/**").permitAll()
+                // Public authentication and catalog endpoints (matching both /api and direct paths)
+                .requestMatchers("/api/auth/**", "/auth/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/books/**", "/books/**").permitAll()
 
                 // Admin-only endpoints
-                .requestMatchers(HttpMethod.POST, "/api/books/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/books/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/books/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/borrowings").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/fines").hasRole("ADMIN")
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/books/**", "/books/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/books/**", "/books/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/books/**", "/books/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/borrowings", "/borrowings").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/fines", "/fines").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
 
                 // Student-only endpoints
-                .requestMatchers(HttpMethod.GET, "/api/borrowings/my").hasRole("STUDENT")
-                .requestMatchers(HttpMethod.POST, "/api/borrowings/*").hasRole("STUDENT")
-                .requestMatchers(HttpMethod.GET, "/api/fines/my").hasRole("STUDENT")
-                .requestMatchers("/api/fines/*/pay").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/borrowings/my", "/borrowings/my").hasRole("STUDENT")
+                .requestMatchers(HttpMethod.POST, "/api/borrowings/*", "/borrowings/*").hasRole("STUDENT")
+                .requestMatchers(HttpMethod.GET, "/api/fines/my", "/fines/my").hasRole("STUDENT")
+                .requestMatchers("/api/fines/*/pay", "/fines/*/pay").authenticated()
 
                 // All other requests require authentication
                 .anyRequest().authenticated()

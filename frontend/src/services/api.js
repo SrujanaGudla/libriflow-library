@@ -1,7 +1,29 @@
 import axios from 'axios';
 
-// Create Axios Instance connected to Spring Boot Backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+// Resolve and sanitize backend API base URL
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+
+/**
+ * Normalizes backend API base URL:
+ * - Falls back to '/api' for Vite dev proxy when not configured
+ * - Strips any trailing slashes
+ * - Corrects any accidental typo '/apis' -> '/api'
+ * - Appends '/api' if URL points to backend root without '/api' (e.g. Render service URL)
+ */
+export const normalizeBaseUrl = (url) => {
+  if (!url) return '/api';
+  let cleaned = url.trim().replace(/\/+$/, '');
+  if (cleaned === '' || cleaned === '/api') return '/api';
+  if (cleaned.endsWith('/apis')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  if (!cleaned.endsWith('/api') && !cleaned.includes('/api/')) {
+    cleaned = `${cleaned}/api`;
+  }
+  return cleaned;
+};
+
+const API_BASE_URL = normalizeBaseUrl(rawBaseUrl);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -14,12 +36,17 @@ const api = axios.create({
 /**
  * Request Interceptor:
  * Automatically attaches JWT Bearer token from localStorage to every authenticated request.
+ * Omits Authorization header for public auth routes (login/register) to prevent stale token rejection.
  */
 api.interceptors.request.use(
   (config) => {
+    const url = config.url || '';
+    const isPublicAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && !isPublicAuthEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -34,8 +61,8 @@ api.interceptors.request.use(
  */
 export const formatUserFriendlyError = (error) => {
   if (!error.response) {
-    // Network Error or Server Unreachable
-    return 'Unable to connect to LibriFlow server (http://localhost:8080). Please check your network connection or ensure the backend service is running.';
+    // Network Error or Server Unreachable (e.g. Render free instance cold start)
+    return 'Unable to connect to the LibriFlow backend service. The server may be waking up from idle (takes ~50 seconds on Render free tier). Please wait a moment and try again.';
   }
 
   const { status, data } = error.response;
@@ -45,7 +72,11 @@ export const formatUserFriendlyError = (error) => {
     case 400:
       return backendMessage || 'Invalid request. Please verify the entered details and try again.';
     case 401:
-      return backendMessage || 'Your session has expired or you are not signed in. Please log in again.';
+      // Hide Spring Security internal exception messages from end users
+      if (backendMessage && !backendMessage.includes('Full authentication is required')) {
+        return backendMessage;
+      }
+      return 'Invalid email or password. Please check your credentials and try again.';
     case 403:
       return 'Access Denied: You do not have permission to perform this action.';
     case 404:

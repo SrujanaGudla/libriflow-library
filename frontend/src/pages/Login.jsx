@@ -47,7 +47,14 @@ export const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      const message = err.response?.data?.message || err.message || 'Invalid credentials. Please try again.';
+      const rawMessage = err.response?.data?.message;
+      let message = err.userMessage;
+      if (rawMessage && !rawMessage.includes('Full authentication is required')) {
+        message = rawMessage;
+      }
+      if (!message) {
+        message = err.message || 'Invalid credentials. Please try again.';
+      }
       setError(message);
     } finally {
       setIsSubmitting(false);

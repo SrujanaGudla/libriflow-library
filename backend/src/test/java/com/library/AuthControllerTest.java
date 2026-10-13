@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -157,5 +158,45 @@ public class AuthControllerTest {
     public void testGetCurrentUserProfileWithoutToken() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Should allow CORS preflight OPTIONS request from production Vercel origin")
+    public void testCorsPreflightFromVercelOrigin() throws Exception {
+        mockMvc.perform(options("/api/auth/login")
+                        .header("Origin", "https://libriflow-library.vercel.app")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "Content-Type,Authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://libriflow-library.vercel.app"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+    }
+
+    @Test
+    @DisplayName("Should allow login from production Vercel origin with CORS headers")
+    public void testLoginWithVercelOrigin() throws Exception {
+        LoginRequest adminLogin = new LoginRequest("admin@library.com", "admin123");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .header("Origin", "https://libriflow-library.vercel.app")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(adminLogin)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://libriflow-library.vercel.app"))
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.token", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("Should support login via /auth/login without /api prefix (200 OK)")
+    public void testLoginDirectWithoutApiPrefix() throws Exception {
+        LoginRequest adminLogin = new LoginRequest("admin@library.com", "admin123");
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(adminLogin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.token", notNullValue()));
     }
 }
